@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:p="http://www.springframework.org/schema/p"
+       xmlns:lang="http://www.springframework.org/schema/lang"
+       xmlns:tx="http://www.springframework.org/schema/tx"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xmlns:util="http://www.springframework.org/schema/util"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:cache="http://www.springframework.org/schema/cache"
+       xmlns:task="http://www.springframework.org/schema/task"
+       xmlns:mongo="http://www.springframework.org/schema/data/mongo"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+	         http://www.springframework.org/schema/beans/spring-beans.xsd
+	         http://www.springframework.org/schema/lang
+	         http://www.springframework.org/schema/lang/spring-lang.xsd
+	         http://www.springframework.org/schema/tx
+	         http://www.springframework.org/schema/tx/spring-tx.xsd
+	         http://www.springframework.org/schema/aop
+	         http://www.springframework.org/schema/aop/spring-aop.xsd
+	         http://www.springframework.org/schema/context
+	         http://www.springframework.org/schema/context/spring-context.xsd
+	         http://www.springframework.org/schema/cache
+	         http://www.springframework.org/schema/cache/spring-cache.xsd
+	         http://www.springframework.org/schema/task
+	         http://www.springframework.org/schema/task/spring-task.xsd
+	         http://www.springframework.org/schema/util
+	         http://www.springframework.org/schema/util/spring-util.xsd
+	         http://www.springframework.org/schema/data/mongo
+	         http://www.springframework.org/schema/data/mongo/spring-mongo.xsd">
+
+
+    <!-- 自动注入properties配置文件 -->
+    <util:properties id="config" location="classpath:propertites/application.properties"/>
+    <context:property-placeholder properties-ref="config"/>
+
+    <context:component-scan base-package="wang.tengp"></context:component-scan>
+
+    <context:annotation-config/>
+
+    <bean id="messageSource" name="messageSource"
+          class="org.springframework.context.support.ResourceBundleMessageSource">
+        <property name="basename" value="propertites/messages"/>
+        <property name="defaultEncoding" value="UTF-8"/>
+        <property name="useCodeAsDefaultMessage" value="true"/>
+        <property name="cacheSeconds" value="3600"/>
+    </bean>
+
+    <!-- mongodb:beging -->
+    <mongo:mongo host="${db.host}" port="${db.port}"/>
+
+    <!-- mongo的工厂，通过工厂Bean创建mongo连接实例,dbname为mongodb的数据库名，没有的话会自动创建 没有密码就把username和password属性删除了-->
+    <mongo:db-factory id="mongoDbFactory" dbname="${db.database}" username="${db.username}" password="${db.password}"
+                      mongo-ref="mongo"/>
+
+    <!-- 映射转换器，扫描back-package目录下的文件，根据注释，把它们作为mongodb的一个collection的映射 -->
+    <mongo:mapping-converter id="mongoDbConverter" base-package="wang.tengp" type-mapper-ref="defaultMongoTypeMapper"/>
+
+
+    <!-- mongodb GridFS Template 支持，操作mongodb存放的文件 -->
+    <mongo:mapping-converter id="gridFsConverter" db-factory-ref="mongoDbFactory"/>
+
+    <!-- mongodb bean的仓库目录，会自动扫描扩展了MongoRepository接口的接口进行注入 -->
+    <!--<mongo:repositories base-package="com.chinac.cdps.platform.repository"/>-->
+
+
+    <!-- 默认Mongodb类型映射 -->
+    <bean id="defaultMongoTypeMapper" class="org.springframework.data.mongodb.core.convert.DefaultMongoTypeMapper">
+        <constructor-arg name="typeKey">
+            <null/><!-- 这里设置为空,可以把 spring data mongodb 多余保存的_class字段去掉 -->
+        </constructor-arg>
+    </bean>
+
+    <!-- mongodb的主要操作对象，所有对mongodb的增删改查的操作都是通过它完成 -->
+    <bean id="mongoTemplate" name="mongoTemplate" class="org.springframework.data.mongodb.core.MongoTemplate">
+        <constructor-arg name="mongoDbFactory" ref="mongoDbFactory"/>
+        <constructor-arg name="mongoConverter" ref="mongoDbConverter"/>
+    </bean>
+
+    <bean id="gridFsTemplate" class="org.springframework.data.mongodb.gridfs.GridFsTemplate">
+        <constructor-arg ref="mongoDbFactory"/>
+        <constructor-arg ref="gridFsConverter"/>
+    </bean>
+
+    <!-- mongodb:end -->
+
+    <!-- 支持异步方法执行 -->
+    <task:annotation-driven/>
+
+</beans>
